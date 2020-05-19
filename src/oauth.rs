@@ -1,7 +1,7 @@
-use chrono::prelude::*;
-use std::sync::{Arc, RwLock};
 use std::collections::HashMap;
-use futures::compat::Future01CompatExt;
+use std::sync::{Arc, RwLock};
+
+use chrono::prelude::*;
 use failure::Error;
 
 #[derive(Clone)]
@@ -12,7 +12,7 @@ pub struct OAuthClientConfig {
 }
 
 impl OAuthClientConfig {
-    pub fn new(client_id: &str, client_secret: &str, well_known_url: &str) -> Result<Self, reqwest::UrlError> {
+    pub fn new(client_id: &str, client_secret: &str, well_known_url: &str) -> Result<Self, url::ParseError> {
         Ok(Self {
             client_id: client_id.to_owned(),
             client_secret: client_secret.to_owned(),
@@ -54,15 +54,15 @@ pub struct OAuthTokenIntrospect {
     pub resource_access: Option<HashMap<String, OAuthTokenIntrospectAccess>>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct OAuthIdToken {
-    sub: String,
-    name: Option<String>,
-    given_name: Option<String>,
-    family_name: Option<String>,
-    preferred_username: Option<String>,
-    email: Option<String>,
-    email_verified: Option<bool>,
+    pub sub: String,
+    pub name: Option<String>,
+    pub given_name: Option<String>,
+    pub family_name: Option<String>,
+    pub preferred_username: Option<String>,
+    pub email: Option<String>,
+    pub email_verified: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -147,7 +147,7 @@ impl From<failure::Error> for VerifyTokenError {
 #[derive(Clone)]
 pub struct OAuthClient {
     config: OAuthClientConfig,
-    client: reqwest::r#async::Client,
+    client: reqwest::Client,
     _well_known: Arc<RwLock<Option<OAuthWellKnown>>>,
     _access_token: Arc<RwLock<Option<OAuthToken>>>,
     _jwks: Arc<RwLock<Option<alcoholic_jwt::JWKS>>>,
@@ -157,7 +157,7 @@ impl OAuthClient {
     pub fn new(config: OAuthClientConfig) -> Self {
         Self {
             config,
-            client: reqwest::r#async::Client::new(),
+            client: reqwest::Client::new(),
             _well_known: Arc::new(RwLock::new(None)),
             _access_token: Arc::new(RwLock::new(None)),
             _jwks: Arc::new(RwLock::new(None)),
@@ -169,10 +169,10 @@ impl OAuthClient {
             return Ok(well_known);
         }
 
-        let mut c = crate::util::async_reqwest_to_error(
+        let c = crate::util::async_reqwest_to_error(
             self.client.get(self.config.well_known_url.clone())
         ).await?;
-        let d = c.json::<OAuthWellKnown>().compat().await?;
+        let d = c.json::<OAuthWellKnown>().await?;
         *self._well_known.write().unwrap() = Some(d.clone());
         Ok(d)
     }
@@ -185,10 +185,10 @@ impl OAuthClient {
         let w = self.well_known().await?;
         match w.jwks_uri {
             Some(u) => {
-                let mut c = crate::util::async_reqwest_to_error(
+                let c = crate::util::async_reqwest_to_error(
                     self.client.get(&u)
                 ).await?;
-                let d = c.json::<alcoholic_jwt::JWKS>().compat().await?;
+                let d = c.json::<alcoholic_jwt::JWKS>().await?;
                 *self._jwks.write().unwrap() = Some(d.clone());
                 Ok(d)
             }
@@ -272,14 +272,11 @@ impl OAuthClient {
                     code,
                 };
 
-                let token = self.get_access_token().await?;
-
-                let mut c = crate::util::async_reqwest_to_error(
+                let c = crate::util::async_reqwest_to_error(
                     self.client.post(&u)
-                        .bearer_auth(&token)
                         .form(&form)
                 ).await?;
-                let t = c.json::<OAuthTokenResponse>().compat().await?;
+                let t = c.json::<OAuthTokenResponse>().await?;
 
                 let now = Utc::now();
 
@@ -324,10 +321,10 @@ impl OAuthClient {
                                     refresh_token: &refresh_token,
                                 };
 
-                                let mut c = crate::util::async_reqwest_to_error(
+                                let c = crate::util::async_reqwest_to_error(
                                     self.client.post(&u).form(&form)
                                 ).await?;
-                                let t = c.json::<OAuthTokenResponse>().compat().await?;
+                                let t = c.json::<OAuthTokenResponse>().await?;
                                 *self._access_token.write().unwrap() = Some(OAuthToken {
                                     access_token: t.access_token.clone(),
                                     expires_at: now + chrono::Duration::seconds(t.expires_in),
@@ -356,10 +353,10 @@ impl OAuthClient {
                     grant_type: "client_credentials",
                 };
 
-                let mut c = crate::util::async_reqwest_to_error(
+                let c = crate::util::async_reqwest_to_error(
                     self.client.post(&u).form(&form)
                 ).await?;
-                let t = match c.json::<OAuthTokenResponse>().compat().await {
+                let t = match c.json::<OAuthTokenResponse>().await {
                     Ok(c) => c,
                     Err(e) => return Err(e.into())
                 };
@@ -389,11 +386,11 @@ impl OAuthClient {
                     token,
                 };
 
-                let mut c = crate::util::async_reqwest_to_error(
+                let c = crate::util::async_reqwest_to_error(
                     self.client.post(&u).form(&form)
                 ).await?;
 
-                let i = c.json::<OAuthTokenIntrospect>().compat().await?;
+                let i = c.json::<OAuthTokenIntrospect>().await?;
                 Ok(i)
             }
             None => Err(failure::err_msg("no introspection endpoint"))
@@ -409,19 +406,20 @@ impl OAuthClient {
             return Err(VerifyTokenError::Forbidden);
         }
 
-        match (&i.aud, &i.resource_access) {
-            (Some(aud), Some(resource_access)) => {
-                if let Some(r) = role.into() {
+        if let Some(r) = role.into() {
+            match (&i.aud, &i.resource_access) {
+                (Some(aud), Some(resource_access)) => {
                     if !aud.contains(&self.config.client_id) ||
                         !resource_access.contains_key(&self.config.client_id) ||
                         !resource_access.get(&self.config.client_id).unwrap().roles.contains(&r.to_owned()) {
                         return Err(VerifyTokenError::Forbidden);
                     }
+                    Ok(i)
                 }
-
-                Ok(i)
+                _ => Err(VerifyTokenError::Forbidden)
             }
-            _ => Err(VerifyTokenError::Forbidden)
+        } else {
+            Ok(i)
         }
     }
 
@@ -450,10 +448,10 @@ impl OAuthClient {
                                     refresh_token: &refresh_token,
                                 };
 
-                                let mut c = crate::util::async_reqwest_to_error(
+                                let c = crate::util::async_reqwest_to_error(
                                     self.client.post(&u).form(&form)
                                 ).await?;
-                                let t = c.json::<OAuthTokenResponse>().compat().await?;
+                                let t = c.json::<OAuthTokenResponse>().await?;
 
                                 OAuthToken {
                                     access_token: t.access_token.clone(),

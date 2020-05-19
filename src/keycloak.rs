@@ -1,6 +1,5 @@
 use rand::prelude::*;
 use std::collections::HashMap;
-use futures::compat::Future01CompatExt;
 use failure::Fallible;
 use std::sync::{Arc, RwLock};
 
@@ -10,7 +9,7 @@ pub struct KeycloakClientConfig {
 }
 
 impl KeycloakClientConfig {
-    pub fn new(base_url: &str, realm: &str) -> Result<Self, reqwest::UrlError> {
+    pub fn new(base_url: &str, realm: &str) -> Result<Self, url::ParseError> {
         Ok(Self {
             base_url: reqwest::Url::parse(base_url)?.join(&format!("admin/realms/{}/", realm))?,
         })
@@ -21,7 +20,7 @@ impl KeycloakClientConfig {
 #[derive(Clone, Debug)]
 pub struct KeycloakClient {
     config: KeycloakClientConfig,
-    client: reqwest::r#async::Client,
+    client: reqwest::Client,
     _user_cache: Arc<RwLock<HashMap<uuid::Uuid, (u64, User)>>>,
     _user_email_cache: Arc<RwLock<HashMap<String, (u64, uuid::Uuid)>>>,
 }
@@ -89,12 +88,12 @@ impl User {
 
         let u = client.config.base_url.join(&format!("users/{}/role-mappings/realm/available", self.id.to_string()))?;
 
-        let mut c = crate::util::async_reqwest_to_error(
+        let c = crate::util::async_reqwest_to_error(
             client.client
                 .get(u)
                 .bearer_auth(token)
         ).await?;
-        let roles = c.json::<Vec<Role>>().compat().await?;
+        let roles = c.json::<Vec<Role>>().await?;
 
         let roles_to_add = new_roles.into_iter().map(|r1| {
             match roles.iter().filter(|r2| {
@@ -194,7 +193,7 @@ impl KeycloakClient {
 
         Self {
             config,
-            client: reqwest::r#async::Client::builder()
+            client: reqwest::Client::builder()
                 .default_headers(d_headers)
                 .build()
                 .unwrap(),
@@ -215,12 +214,12 @@ impl KeycloakClient {
 
         let u = self.config.base_url.join(&format!("users/{}", user_id.to_string()))?;
 
-        let mut c = crate::util::async_reqwest_to_error(
+        let c = crate::util::async_reqwest_to_error(
             self.client
                 .get(u)
                 .bearer_auth(token)
         ).await?;
-        let mut u = c.json::<User>().compat().await?;
+        let mut u = c.json::<User>().await?;
 
         self._user_cache.write().unwrap().insert(user_id.clone(), (since_the_epoch, u.clone()));
 
@@ -231,12 +230,12 @@ impl KeycloakClient {
     pub async fn get_users(&self, token: &str) -> Fallible<Vec<User>> {
         let u = self.config.base_url.join("users")?;
 
-        let mut c = crate::util::async_reqwest_to_error(
+        let c = crate::util::async_reqwest_to_error(
             self.client
                 .get(u)
                 .bearer_auth(token)
         ).await?;
-        let u = c.json::<Vec<User>>().compat().await?
+        let u = c.json::<Vec<User>>().await?
             .into_iter()
             .map(|u| {
                 let mut new_u = u.clone();
@@ -330,12 +329,12 @@ impl KeycloakClient {
 
         let location_url = reqwest::Url::parse(location)?;
 
-        let mut c = crate::util::async_reqwest_to_error(
+        let c = crate::util::async_reqwest_to_error(
             self.client
                 .get(location_url)
                 .bearer_auth(token)
         ).await?;
-        let mut r = c.json::<User>().compat().await?;
+        let mut r = c.json::<User>().await?;
         r._client = Some(self.clone());
         Ok(r)
     }
