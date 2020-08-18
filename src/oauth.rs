@@ -47,11 +47,42 @@ pub struct OAuthTokenIntrospect {
     pub iat: Option<i64>,
     pub nbf: Option<i64>,
     pub sub: Option<String>,
+    #[serde(default, deserialize_with = "de_aud")]
     pub aud: Option<Vec<String>>,
     pub iss: Option<String>,
     pub jti: Option<String>,
     pub realm_access: Option<OAuthTokenIntrospectAccess>,
     pub resource_access: Option<HashMap<String, OAuthTokenIntrospectAccess>>,
+}
+
+struct AudVisitor;
+
+impl<'de> serde::de::Visitor<'de> for AudVisitor {
+    type Value = Option<Vec<String>>;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "a string or an array of strings")
+    }
+
+    fn visit_none<E: serde::de::Error>(self) -> Result<Self::Value, E> {
+        Ok(None)
+    }
+
+    fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Self::Value, E> {
+        Ok(Some(vec![value.to_string()]))
+    }
+
+    fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut value: A) -> Result<Self::Value, A::Error>  {
+        let mut values = vec![];
+        while let Some(elm) = value.next_element::<&str>()? {
+            values.push(elm.to_string());
+        }
+        Ok(Some(values))
+    }
+}
+
+fn de_aud<'de, D: serde::Deserializer<'de>,>(d: D) -> Result<Option<Vec<String>>, D::Error> {
+    d.deserialize_any(AudVisitor)
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
