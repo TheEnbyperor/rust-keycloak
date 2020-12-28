@@ -422,6 +422,7 @@ impl OAuthClient {
                 ).await?;
 
                 let i = c.json::<OAuthTokenIntrospect>().await?;
+                debug!("Introspected token to be: {:?}", i);
                 Ok(i)
             }
             None => Err(failure::err_msg("no introspection endpoint"))

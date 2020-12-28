@@ -5,9 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="ec3221d3-0329-45bb-9cbb-7911d7b6cb16" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/oauth.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/oauth.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -31,10 +30,48 @@
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="WebServerToolWindowFactoryState" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="node.js.detected.package.eslint" value="true" />
+    <property name="node.js.detected.package.tslint" value="true" />
+    <property name="node.js.path.for.package.eslint" value="project" />
+    <property name="node.js.path.for.package.tslint" value="project" />
+    <property name="node.js.selected.package.eslint" value="(autodetect)" />
+    <property name="node.js.selected.package.tslint" value="(autodetect)" />
     <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
     <property name="nodejs_npm_path_reset_for_default_project" value="true" />
     <property name="org.rust.cargo.project.model.PROJECT_DISCOVERY" value="true" />
     <property name="settings.editor.selected.configurable" value="settings.github" />
+  </component>
+  <component name="RestClientSettings">
+    <option name="REQUEST_HISTORY">
+      <list>
+        <RestClientRequest>
+          <option name="httpMethod" value="POST" />
+          <option name="urlBase" value="https://staclar-registrar.cust.as207960.net/auth/realms/master/protocol/openid-connect/token" />
+          <option name="urlPath" value="" />
+          <option name="headers">
+            <list>
+              <KeyValuePair>
+                <option name="key" value="Content-Type" />
+                <option name="value" value="application/x-www-form-urlencoded" />
+              </KeyValuePair>
+            </list>
+          </option>
+          <option name="haveTextToSend" value="true" />
+          <option name="textToSend" value="grant_type=client_credentials&amp;client_id=test-client&amp;client_secret=3bb5595e-19db-4a83-b74e-c5a4cb89169e" />
+          <option name="filesToSend" value="" />
+        </RestClientRequest>
+      </list>
+    </option>
+  </component>
+  <component name="RunManager">
+    <configuration name="scratch_1#1" type="HttpClient.HttpRequestRunConfigurationType" factoryName="HTTP Request" temporary="true" path="$APPLICATION_CONFIG_DIR$/scratches/scratch_1.http" runType="Run single request">
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="HTTP Request.scratch_1#1" />
+      </list>
+    </recent_temporary>
   </component>
   <component name="RustProjectSettings">
     <option name="toolchainHomeDirectory" value="$USER_HOME$/.nix-profile/bin" />
@@ -49,7 +86,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1597763866337</updated>
-      <workItem from="1597763867486" duration="1107000" />
+      <workItem from="1597763867486" duration="3105000" />
     </task>
     <servers />
   </component>
@@ -57,6 +94,22 @@
     <option name="version" value="1" />
   </component>
   <component name="WindowStateProjectService">
+    <state width="1916" height="342" key="GridCell.Tab.0.bottom" timestamp="1597767496276">
+      <screen x="0" y="0" width="1920" height="1200" />
+    </state>
+    <state width="1916" height="342" key="GridCell.Tab.0.bottom/0.0.1920.1200@0.0.1920.1200" timestamp="1597767496276" />
+    <state width="1916" height="342" key="GridCell.Tab.0.center" timestamp="1597767496275">
+      <screen x="0" y="0" width="1920" height="1200" />
+    </state>
+    <state width="1916" height="342" key="GridCell.Tab.0.center/0.0.1920.1200@0.0.1920.1200" timestamp="1597767496275" />
+    <state width="1916" height="342" key="GridCell.Tab.0.left" timestamp="1597767496275">
+      <screen x="0" y="0" width="1920" height="1200" />
+    </state>
+    <state width="1916" height="342" key="GridCell.Tab.0.left/0.0.1920.1200@0.0.1920.1200" timestamp="1597767496275" />
+    <state width="1916" height="342" key="GridCell.Tab.0.right" timestamp="1597767496275">
+      <screen x="0" y="0" width="1920" height="1200" />
+    </state>
+    <state width="1916" height="342" key="GridCell.Tab.0.right/0.0.1920.1200@0.0.1920.1200" timestamp="1597767496275" />
     <state x="620" y="271" width="670" height="596" key="com.intellij.openapi.editor.actions.MultiplePasteAction$ClipboardContentChooser" timestamp="1597763967586">
       <screen x="0" y="0" width="1920" height="1200" />
     </state>
