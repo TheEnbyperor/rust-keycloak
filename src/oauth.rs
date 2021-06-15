@@ -575,7 +575,7 @@ impl OptionalBearerAuthToken {
 
 impl actix_web::FromRequest for BearerAuthToken {
     type Error = actix_web::Error;
-    type Future = Result<Self, Self::Error>;
+    type Future = futures_util::future::Ready<Result<Self, Self::Error>>;
     type Config = ();
 
     fn from_request(req: &actix_web::HttpRequest, _payload: &mut actix_web::dev::Payload) -> Self::Future {
@@ -584,24 +584,24 @@ impl actix_web::FromRequest for BearerAuthToken {
             if let Ok(auth_token_str) = auth_token.to_str() {
                 let auth_token_str = auth_token_str.trim();
                 if auth_token_str.starts_with("Bearer ") {
-                    Ok(Self {
+                    futures_util::future::ok(Self {
                         token: auth_token_str[7..].to_owned()
                     })
                 } else {
-                    Err(actix_web::HttpResponse::new(http::StatusCode::UNAUTHORIZED).into())
+                    futures_util::future::err(actix_web::HttpResponse::new(http::StatusCode::UNAUTHORIZED).into())
                 }
             } else {
-                Err(actix_web::HttpResponse::new(http::StatusCode::UNAUTHORIZED).into())
+                futures_util::future::err(actix_web::HttpResponse::new(http::StatusCode::UNAUTHORIZED).into())
             }
         } else {
-            Err(actix_web::HttpResponse::new(http::StatusCode::UNAUTHORIZED).into())
+            futures_util::future::err(actix_web::HttpResponse::new(http::StatusCode::UNAUTHORIZED).into())
         }
     }
 }
 
 impl actix_web::FromRequest for OptionalBearerAuthToken {
     type Error = actix_web::Error;
-    type Future = Result<Self, Self::Error>;
+    type Future = futures_util::future::Ready<Result<Self, Self::Error>>;
     type Config = ();
 
     fn from_request(req: &actix_web::HttpRequest, _payload: &mut actix_web::dev::Payload) -> Self::Future {
@@ -610,21 +610,21 @@ impl actix_web::FromRequest for OptionalBearerAuthToken {
             if let Ok(auth_token_str) = auth_token.to_str() {
                 let auth_token_str = auth_token_str.trim();
                 if auth_token_str.starts_with("Bearer ") {
-                    Ok(Self {
+                    futures_util::future::ok(Self {
                         token: Some(auth_token_str[7..].to_owned())
                     })
                 } else {
-                    Ok(Self {
+                    futures_util::future::ok(Self {
                         token: None
                     })
                 }
             } else {
-                Ok(Self {
+                futures_util::future::ok(Self {
                     token: None
                 })
             }
         } else {
-            Ok(Self {
+            futures_util::future::ok(Self {
                 token: None
             })
         }

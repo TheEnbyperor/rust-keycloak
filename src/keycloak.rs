@@ -202,7 +202,7 @@ impl KeycloakClient {
         }
     }
 
-    pub async fn get_user(&self, user_id: uuid::Uuid, token: &str) -> Fallible<User> {
+    pub async fn get_user(&self, user_id: uuid::Uuid, token: &str) -> actix_web::Result<User> {
         let since_the_epoch = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
             .expect("Time went backwards").as_secs().to_owned();
 
@@ -212,14 +212,14 @@ impl KeycloakClient {
             }
         }
 
-        let u = self.config.base_url.join(&format!("users/{}", user_id.to_string()))?;
+        let u = self.config.base_url.join(&format!("users/{}", user_id.to_string())).map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
 
         let c = crate::util::async_reqwest_to_error(
             self.client
                 .get(u)
                 .bearer_auth(token)
-        ).await?;
-        let mut u = c.json::<User>().await?;
+        ).await.map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+        let mut u = c.json::<User>().await.map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
 
         self._user_cache.write().unwrap().insert(user_id.clone(), (since_the_epoch, u.clone()));
 
@@ -227,15 +227,15 @@ impl KeycloakClient {
         Ok(u)
     }
 
-    pub async fn get_users(&self, token: &str) -> Fallible<Vec<User>> {
-        let u = self.config.base_url.join("users")?;
+    pub async fn get_users(&self, token: &str) -> actix_web::Result<Vec<User>> {
+        let u = self.config.base_url.join("users").map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
 
         let c = crate::util::async_reqwest_to_error(
             self.client
                 .get(u)
                 .bearer_auth(token)
-        ).await?;
-        let u = c.json::<Vec<User>>().await?
+        ).await.map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+        let u = c.json::<Vec<User>>().await.map_err(|e| actix_web::error::ErrorInternalServerError(e))?
             .into_iter()
             .map(|u| {
                 let mut new_u = u.clone();
@@ -246,7 +246,7 @@ impl KeycloakClient {
         Ok(u)
     }
 
-    pub async fn get_users_expanded(&self, token: &str) -> Fallible<Vec<User>> {
+    pub async fn get_users_expanded(&self, token: &str) -> actix_web::Result<Vec<User>> {
         let users = self.get_users(token).await?;
         let users: Vec<_> = users
             .into_iter()
@@ -280,7 +280,7 @@ impl KeycloakClient {
         Ok(None)
     }
 
-    pub async fn create_user(&self, email: &str, token: &str) -> Fallible<User> {
+    pub async fn create_user(&self, email: &str, token: &str) -> actix_web::Result<User> {
         let users = self.get_users(token).await?;
 
         fn username_exists(username: &str, users: &Vec<User>) -> bool {
@@ -298,17 +298,18 @@ impl KeycloakClient {
                 Some(_) => true,
                 None => false
             }
-        };
+        }
 
         let mut preferred_username = email.to_string();
         while username_exists(&preferred_username, &users) {
             preferred_username = rand::thread_rng()
                 .sample_iter(&rand::distributions::Alphanumeric)
                 .take(10)
+                .map(char::from)
                 .collect();
         }
 
-        let u = self.config.base_url.join("users")?;
+        let u = self.config.base_url.join("users").map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
         let c = crate::util::async_reqwest_to_error(
             self.client
                 .post(u)
@@ -318,23 +319,23 @@ impl KeycloakClient {
                     enabled: true,
                 })
                 .bearer_auth(token)
-        ).await?;
+        ).await.map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
 
         let location_header = match c.headers().get(reqwest::header::LOCATION) {
             Some(l) => l,
-            None => return Err(failure::err_msg("No location header"))
+            None => return Err(actix_web::error::ErrorInternalServerError("No location header"))
         };
 
-        let location = location_header.to_str()?;
+        let location = location_header.to_str().map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
 
-        let location_url = reqwest::Url::parse(location)?;
+        let location_url = reqwest::Url::parse(location).map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
 
         let c = crate::util::async_reqwest_to_error(
             self.client
                 .get(location_url)
                 .bearer_auth(token)
-        ).await?;
-        let mut r = c.json::<User>().await?;
+        ).await.map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+        let mut r = c.json::<User>().await.map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
         r._client = Some(self.clone());
         Ok(r)
     }
