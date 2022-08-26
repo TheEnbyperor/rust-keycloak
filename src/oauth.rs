@@ -38,7 +38,8 @@ pub struct OAuthTokenIntrospectAccess {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct OAuthTokenIntrospect {
-    pub active: bool,
+    #[serde(default)]
+    pub active: Option<bool>,
     pub scope: Option<String>,
     pub client_id: Option<String>,
     pub username: Option<String>,
@@ -72,10 +73,14 @@ impl<'de> serde::de::Visitor<'de> for AudVisitor {
         Ok(Some(vec![value.to_string()]))
     }
 
+    fn visit_string<E: serde::de::Error>(self, value: String) -> Result<Self::Value, E> {
+        Ok(Some(vec![value]))
+    }
+
     fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut value: A) -> Result<Self::Value, A::Error>  {
         let mut values = vec![];
-        while let Some(elm) = value.next_element::<&str>()? {
-            values.push(elm.to_string());
+        while let Some(elm) = value.next_element::<std::borrow::Cow<'de, str>>()? {
+            values.push(elm.into_owned());
         }
         Ok(Some(values))
     }
@@ -432,26 +437,56 @@ impl OAuthClient {
     pub async fn verify_token<'a, R>(&self, token: &str, role: R) -> Result<OAuthTokenIntrospect, VerifyTokenError>
         where R: Into<Option<&'a str>>
     {
-        let i = self.introspect_token(token).await?;
+        let keys = self.jwks().await?;
+        let wk = self.well_known().await?;
 
-        if !i.active {
-            return Err(VerifyTokenError::Forbidden);
-        }
+        let validations = vec![
+            alcoholic_jwt::Validation::Audience(self.config.client_id.clone()),
+            alcoholic_jwt::Validation::Issuer(wk.issuer.clone()),
+            alcoholic_jwt::Validation::NotExpired,
+            alcoholic_jwt::Validation::SubjectPresent,
+        ];
+
+        let kid = match match alcoholic_jwt::token_kid(token) {
+            Ok(k) => k,
+            Err(e) => return Err(VerifyTokenError::InternalServerError(format!("{:?}", e)))
+        } {
+            Some(k) => k,
+            None => return Err(VerifyTokenError::InternalServerError("no token kid".to_string()))
+        };
+
+        let key = match keys.find(&kid) {
+            Some(k) => k,
+            None => return Err(VerifyTokenError::InternalServerError("unable to find key".to_string()))
+        };
+
+        let token = match alcoholic_jwt::validate(token, key, validations) {
+            Ok(k) => k,
+            Err(e) => {
+                return Err(VerifyTokenError::Forbidden)
+            }
+        };
+
+        let data: OAuthTokenIntrospect = match serde_json::from_value(token.claims) {
+            Ok(c) => c,
+            Err(e) => {
+                return Err(VerifyTokenError::InternalServerError(format!("{:?}", e)))
+            }
+        };
 
         if let Some(r) = role.into() {
-            match (&i.aud, &i.resource_access) {
-                (Some(aud), Some(resource_access)) => {
-                    if !aud.contains(&self.config.client_id) ||
-                        !resource_access.contains_key(&self.config.client_id) ||
+            match &data.resource_access {
+                Some(resource_access) => {
+                    if !resource_access.contains_key(&self.config.client_id) ||
                         !resource_access.get(&self.config.client_id).unwrap().roles.contains(&r.to_owned()) {
                         return Err(VerifyTokenError::Forbidden);
                     }
-                    Ok(i)
+                    Ok(data)
                 }
                 _ => Err(VerifyTokenError::Forbidden)
             }
         } else {
-            Ok(i)
+            Ok(data)
         }
     }
 
