@@ -338,7 +338,7 @@ impl OAuthClient {
             self._access_token.read().unwrap().clone()
         };
         if let Some(access_token) = cached_token {
-            if access_token.expires_at > now {
+            if access_token.expires_at > (now + chrono::Duration::seconds(60)) {
                 return Ok(access_token.access_token);
             } else if let Some(refresh_expires_at) = access_token.refresh_expires_at {
                 if let Some(refresh_token) = access_token.refresh_token {
@@ -462,7 +462,7 @@ impl OAuthClient {
 
         let token = match alcoholic_jwt::validate(token, key, validations) {
             Ok(k) => k,
-            Err(e) => {
+            Err(_) => {
                 return Err(VerifyTokenError::Forbidden)
             }
         };
@@ -496,7 +496,7 @@ impl OAuthClient {
         let now = Utc::now();
 
         let access_token = {
-            if token.expires_at > now {
+            if token.expires_at > (now + chrono::Duration::seconds(60)) {
                 token
             } else if let Some(refresh_expires_at) = token.refresh_expires_at {
                 if let Some(refresh_token) = &token.refresh_token {
